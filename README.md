@@ -1,2 +1,2 @@
 # banana-bonanza
-A chaotic 2D pixel raid game where you sneak, tackle, and outsmart a gorilla to steal his banana stash before time runs out. Play solo, co-op, or competitive.
+a fast-paced 2d pixel raid where you and your friends try to snatch bananas from a angry gorilla. play solo, co-op, or go head-to-head.
