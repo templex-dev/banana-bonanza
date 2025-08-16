@@ -1,12 +1,15 @@
 {
-  "name": "banana-bonanza-server",
+  "name": "banana-bonanza",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
+  "description": "Banana Bonanza Alpha - top-down pixel raid/defend with gorilla AI and juicy animations.",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server/index.js",
+    "dev": "NODE_ENV=development node server/index.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "nanoid": "^5.0.7",
+    "ws": "^8.18.0"
   }
 }
