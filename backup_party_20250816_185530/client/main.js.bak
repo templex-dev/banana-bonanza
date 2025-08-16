@@ -1,8 +1,9 @@
-/* Banana Bonanza (Alpha) - Party System UI (no walking)
- * - Create / join party via link
- * - Mode selector (Gorilla Guard / Competitive)
- * - Same server protocol (select-mode, state snapshots)
- * - Juicy pixel renderer kept from previous build
+/* Banana Bonanza (Alpha) - Client
+ * - Canvas pixel renderer (nearest-neighbor, integer snap)
+ * - Jungle camp matchmaking + invite
+ * - Gorilla Guard & Competitive modes
+ * - Juicy FX: screenshake, hit flash, dust, sparkles, squash
+ * - Procedural pixel sprites (no external assets)
  */
 (() => {
   const TILE = 16;
@@ -12,7 +13,6 @@
   const ctx = canvas.getContext('2d', { alpha: false });
   ctx.imageSmoothingEnabled = false;
 
-  // --- UI refs ---
   const hud = {
     root: document.getElementById('hud'),
     timer: document.getElementById('timer'),
@@ -21,22 +21,11 @@
     pile: document.getElementById('pile'),
     status: document.getElementById('status'),
   };
-  const partyPanel = document.getElementById('party-panel');
+  const campPanel = document.getElementById('camp-overlay');
+  const btnEnterCamp = document.getElementById('btnEnterCamp');
   const invitePanel = document.getElementById('invite');
   const inviteLinkInput = document.getElementById('inviteLink');
-  const btnCopy = document.getElementById('btnCopy');
 
-  const nameInput = document.getElementById('nameInput');
-  const btnCreate = document.getElementById('btnCreate');
-  const btnSolo = document.getElementById('btnSolo');
-
-  // --- Mode selection helpers ---
-  const getMode = () => {
-    const el = document.querySelector('input[name="mode"]:checked');
-    return (el && el.value === 'competitive') ? 'competitive' : 'gorilla';
-  };
-
-  // --- Networking ---
   const urlParams = new URLSearchParams(location.search);
   const invitedRoom = urlParams.get('room');
   const invitedMode = urlParams.get('mode');
@@ -47,6 +36,7 @@
   let myId = null, roomId = null;
 
   const Net = { send(obj){ if (socket.readyState===1) socket.send(JSON.stringify(obj)); } };
+
   socket.addEventListener('open', () => { Net.send({ t:'hello', client:'banana-bonanza', v:1 }); });
 
   const game = { mode:'guard', state:null };
@@ -58,74 +48,34 @@
     if (msg.t==='camp'){ return; }
     if (msg.t==='joined'){
       roomId = msg.roomId;
+      if (msg.inviteUrl){ invitePanel.classList.remove('hidden'); inviteLinkInput.value = msg.inviteUrl; }
       game.mode = msg.mode;
-      // Show invite bar
-      if (msg.inviteUrl){
-        invitePanel.classList.remove('hidden');
-        inviteLinkInput.value = msg.inviteUrl;
-      }
-      // Hide party panel and jump straight to game
-      partyPanel.classList.add('hidden');
       return;
     }
     if (msg.t==='state'){
       game.state = msg;
-      // HUD
       hud.root.classList.remove('hidden');
       hud.timer.textContent = formatTime(msg.timeLeft ?? 0);
       hud.target.textContent = 'Target: ' + (msg.target ?? 50);
       if (msg.mode==='comp'){ hud.pile.classList.remove('hidden'); hud.pile.textContent = 'Center: ' + (msg.centerPile ?? 0); }
       else { hud.pile.classList.add('hidden'); }
-      // score tween
       const me = (msg.players||[]).find(p=>p.id===myId);
       if (me) anim.scoreTarget = me.banked;
     }
   });
 
-  // Join via invite automatically
-  window.addEventListener('load', () => {
-    nameInput.value ||= suggestName();
-    if (invitedRoom) {
-      Net.send({ t:'select-mode', mode: requestedMode, roomId: invitedRoom, name: nameInput.value });
-    }
-  });
-
-  // Create Party button
-  btnCreate.addEventListener('click', () => {
-    const mode = getMode();
-    const name = (nameInput.value || suggestName()).slice(0,16);
-    Net.send({ t:'select-mode', mode, name });
-  });
-
-  // Solo vs bots convenience
-  btnSolo.addEventListener('click', () => {
-    // Gorilla guard starts instantly; Competitive starts with bots
-    const mode = getMode();
-    const name = (nameInput.value || suggestName()).slice(0,16);
-    Net.send({ t:'select-mode', mode, name });
-  });
-
-  // Copy invite button
-  btnCopy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLinkInput.value);
-      btnCopy.textContent = 'Copied!';
-      setTimeout(()=>btnCopy.textContent='Copy', 900);
-    } catch {
-      inviteLinkInput.select(); document.execCommand('copy');
-      btnCopy.textContent = 'Copied*';
-      setTimeout(()=>btnCopy.textContent='Copy', 900);
-    }
-  });
-
-  // --- Input to server ---
   const keys = {};
   const keyMap = { 'KeyW':'up','KeyA':'left','KeyS':'down','KeyD':'right','Space':'space','KeyE':'e','KeyQ':'q' };
   addEventListener('keydown', (e)=>{ const k=keyMap[e.code]; if(k){keys[k]=true; e.preventDefault();} });
   addEventListener('keyup',   (e)=>{ const k=keyMap[e.code]; if(k){keys[k]=false; e.preventDefault();} });
+
   setInterval(()=>{ if (roomId) Net.send({ t:'input', up:!!keys.up,down:!!keys.down,left:!!keys.left,right:!!keys.right,space:!!keys.space,e:!!keys.e,q:!!keys.q }); }, 60);
 
-  // --- Audio (jungle loop + roar duck) ---
+  btnEnterCamp.addEventListener('click', () => { campPanel.classList.add('hidden'); Net.send({ t:'camp-enter' }); scene='camp'; });
+  if (invitedRoom){ campPanel.classList.add('hidden'); Net.send({ t:'select-mode', mode: requestedMode, roomId: invitedRoom, name: suggestName() }); scene='game'; }
+  else { campPanel.classList.remove('hidden'); }
+
+  // --- Audio (tiny WebAudio synth) ---
   const audio = (() => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     let bgmGain = ctx.createGain(); bgmGain.gain.value = 0.06; bgmGain.connect(ctx.destination);
@@ -149,6 +99,7 @@
       };
     }
     startBgm();
+
     function roar(){
       const t=ctx.currentTime;
       const noise = ctx.createBufferSource();
@@ -164,7 +115,7 @@
     return { roar };
   })();
 
-  // --- Procedural pixel sprites & tiles ---
+  // --- Sprites (procedural pixel art) ---
   const Spr = (() => {
     const palette = { dark:'#0b120a', mid:'#2e3c24', light:'#9ad451', sand:'#c2a86a', water:'#2b6fb0', water2:'#1d5a90', mud:'#6a4a2a', vine:'#3fa04a', banana:'#ffe85a', banana2:'#ffd12a' };
     function makeCanvas(w,h){ const cvs=document.createElement('canvas'); cvs.width=w; cvs.height=h; const c=cvs.getContext('2d',{alpha:true}); c.imageSmoothingEnabled=false; return [cvs,c]; }
@@ -195,49 +146,46 @@
     return { tileAtlas, sprite24, drawMonkey, drawGorilla, drawBanana };
   })();
 
-  // --- Rendering helpers & map ---
   function formatTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
   function withShake(fn){ const sx=Math.round(anim.shakeX), sy=Math.round(anim.shakeY); ctx.save(); ctx.translate(sx, sy); fn(); ctx.restore(); anim.shakeX*=0.9; anim.shakeY*=0.9; }
   function pixelText(txt,x,y){ ctx.save(); ctx.fillStyle='#e6ff9a'; ctx.font='900 10px monospace'; ctx.fillText(String(txt), x, y); ctx.restore(); }
 
-  const MAP_ASCII = [
-"############################################",
-"#....................~~~~~.................#",
-"#.....vvv...........~~~~~.........vvv......#",
-"#.....vvv......====.~~~~~.====....vvv......#",
-"#.....vvv......====.~~~~~.====....vvv......#",
-"#...............~~~.~~~~~.~~~..............#",
-"#....,,,,...........~~~~~...........,,,,...#",
-"#....,,,,...........~~~~~...........,,,,...#",
-"#....,,,,...........~~~~~...........,,,,...#",
-"#....................~~~~~.................#",
-"#.............g............................#",
-"#...........#####..................#####...#",
-"#...........# S #..................#   #...#",
-"#...........#   #..................# C #...#",
-"#...........#####..................#####...#",
-"#..........................................#",
-"#..====....................B...............#",
-"#..====....................................#",
-"#..........................................#",
-"#.....vvv.........................vvv......#",
-"#.....vvv.........................vvv......#",
-"#.....vvv.........................vvv......#",
-"#..........................................#",
-"#....,,,,.........................,,,,.....#",
-"#....,,,,.........................,,,,.....#",
-"#....,,,,.........................,,,,.....#",
-"#..........................................#",
-"############################################",
-];
-  function mapCharAt(x,y){ if (x<0||y<0||y>=MAP_ASCII.length||x>=MAP_ASCII[0].length) return '#'; return MAP_ASCII[y][x]; }
-  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  // --- Camp scene ---
+  let scene='menu';
+  const camp = { t:0, monkey:{x:VIEW_W/2, y:VIEW_H-80}, zones:[ {name:'Solo (Gorilla Guard)',mode:'gorilla',x:VIEW_W*0.25,y:VIEW_H*0.35}, {name:'Co-op (Guard)',mode:'gorilla',x:VIEW_W*0.5,y:VIEW_H*0.30}, {name:'Competitive',mode:'competitive',x:VIEW_W*0.75,y:VIEW_H*0.35}, {name:'Campfire (Invite Link)',mode:'invite',x:VIEW_W*0.5,y:VIEW_H*0.55} ] };
 
-  // --- Game render loop (unchanged core) ---
+  function drawCamp(dt){
+    camp.t += dt;
+    ctx.fillStyle='#10200f'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+    ctx.fillStyle='#3c3322'; ctx.fillRect(VIEW_W*0.2, VIEW_H*0.28, VIEW_W*0.6, 16);
+    ctx.fillRect(VIEW_W*0.48, VIEW_H*0.28, 16, VIEW_H*0.33);
+    const fx=VIEW_W*0.5, fy=VIEW_H*0.55;
+    ctx.fillStyle='#6a3a1a'; ctx.fillRect(fx-6, fy+10, 12, 8);
+    ctx.fillStyle='#f1b020'; ctx.beginPath(); ctx.arc(fx, fy, 14+Math.sin(camp.t*5)*2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#dffd9f'; ctx.font='900 14px monospace';
+    for (const z of camp.zones){ ctx.fillText(z.name, z.x-80, z.y-14); ctx.fillStyle='#2e502e'; ctx.fillRect(z.x-10, z.y-10, 20, 20); ctx.fillStyle='#9ad451'; ctx.fillRect(z.x-8, z.y-8, 16, 16); ctx.fillStyle='#dffd9f'; }
+
+    const dx=(keys.right?1:0)-(keys.left?1:0), dy=(keys.down?1:0)-(keys.up?1:0);
+    const spd=2.0;
+    camp.monkey.x = clamp(camp.monkey.x + dx*spd, 20, VIEW_W-20);
+    camp.monkey.y = clamp(camp.monkey.y + dy*spd, VIEW_H*0.25, VIEW_H-20);
+
+    const [cv,c] = Spr.sprite24(); Spr.drawMonkey(c, camp.t, { action:(dx||dy)?'run':'idle', carry:0, stunned:false }); ctx.drawImage(cv, Math.round(camp.monkey.x-12), Math.round(camp.monkey.y-20));
+
+    for (const z of camp.zones){
+      const d = Math.hypot(camp.monkey.x - z.x, camp.monkey.y - z.y);
+      if (d<26 && keys.e){
+        if (z.mode==='invite'){ if (!roomId){ Net.send({ t:'select-mode', mode: requestedMode, name: suggestName() }); scene='game'; } else { invitePanel.classList.remove('hidden'); } }
+        else { Net.send({ t:'select-mode', mode: z.mode, name: suggestName() }); scene='game'; }
+      }
+    }
+  }
+
+  // --- Game render ---
   function renderGame(dt){
     ctx.fillStyle='#0b140a'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
     const s = game.state;
-    if (!s){ drawIdleBackdrop(dt); return; }
+    if (!s){ drawCamp(0); return; }
 
     if (s.gorilla && s.gorilla.state==='roar'){ audio.roar(); anim.shakeX += (Math.random()*4-2); anim.shakeY += (Math.random()*4-2); }
 
@@ -281,27 +229,41 @@
     if (anim.flash>0){ ctx.fillStyle=`rgba(255,255,255,${anim.flash})`; ctx.fillRect(0,0,VIEW_W,VIEW_H); anim.flash*=0.9; }
   }
 
-  // Idle background when in party panel / before snapshots arrive
-  let idleT = 0;
-  function drawIdleBackdrop(dt){
-    idleT += dt;
-    ctx.fillStyle = '#10200f'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
-    // soft moving highlights to feel alive
-    ctx.globalAlpha = 0.06;
-    ctx.fillStyle = '#9ad451';
-    for (let i=0;i<8;i++){
-      const x = (Math.sin(idleT*0.6 + i)*0.5+0.5)*VIEW_W;
-      const y = (Math.cos(idleT*0.7 + i)*0.5+0.5)*VIEW_H;
-      ctx.beginPath(); ctx.arc(x, y, 60 + 20*Math.sin(idleT*1.2+i), 0, Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // --- Main loop ---
-  let last = performance.now();
-  function frame(ts){ const dt=Math.min(0.033,(ts-last)/1000); last=ts; anim.t+=dt; renderGame(dt); requestAnimationFrame(frame); }
-  requestAnimationFrame(frame);
-
-  // --- Helpers ---
+  const MAP_ASCII = [
+"############################################",
+"#....................~~~~~.................#",
+"#.....vvv...........~~~~~.........vvv......#",
+"#.....vvv......====.~~~~~.====....vvv......#",
+"#.....vvv......====.~~~~~.====....vvv......#",
+"#...............~~~.~~~~~.~~~..............#",
+"#....,,,,...........~~~~~...........,,,,...#",
+"#....,,,,...........~~~~~...........,,,,...#",
+"#....,,,,...........~~~~~...........,,,,...#",
+"#....................~~~~~.................#",
+"#.............g............................#",
+"#...........#####..................#####...#",
+"#...........# S #..................#   #...#",
+"#...........#   #..................# C #...#",
+"#...........#####..................#####...#",
+"#..........................................#",
+"#..====....................B...............#",
+"#..====....................................#",
+"#..........................................#",
+"#.....vvv.........................vvv......#",
+"#.....vvv.........................vvv......#",
+"#.....vvv.........................vvv......#",
+"#..........................................#",
+"#....,,,,.........................,,,,.....#",
+"#....,,,,.........................,,,,.....#",
+"#....,,,,.........................,,,,.....#",
+"#..........................................#",
+"############################################",
+];
+  function mapCharAt(x,y){ if (x<0||y<0||y>=MAP_ASCII.length||x>=MAP_ASCII[0].length) return '#'; return MAP_ASCII[y][x]; }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
   function suggestName(){ const animals=['Macaque','Capuchin','Bonobo','Langur','Howler','Tamarin','Colobus']; return animals[Math.floor(Math.random()*animals.length)] + '-' + Math.floor(Math.random()*90+10); }
+
+  let last = performance.now();
+  function frame(ts){ const dt=Math.min(0.033,(ts-last)/1000); last=ts; anim.t+=dt; if (scene==='camp') drawCamp(dt); else renderGame(dt); requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
 })();

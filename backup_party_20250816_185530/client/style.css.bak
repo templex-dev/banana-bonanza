@@ -1,0 +1,66 @@
+:root {
+  --ui-bg: #1a1f1a;
+  --ui-fg: #e7ff9e;
+  --ui-dim:#9fb064;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin:0; padding:0; height:100%; background:#081308; color:#dcefd0;
+  font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+}
+#game {
+  display:block; margin:0 auto;
+  width: 960px; height: 576px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+#ui { position: fixed; inset: 0; pointer-events: none; }
+.panel {
+  pointer-events: auto;
+  position: absolute; left:50%; top:50%; transform: translate(-50%,-50%);
+  background: rgba(10,12,8,0.92);
+  border: 2px solid #2f3f1f;
+  border-radius: 8px;
+  padding: 16px 20px;
+  width: min(92vw, 720px);
+  color: var(--ui-fg);
+  text-shadow: 0 1px 0 #000;
+}
+.panel.hidden { display:none; }
+.panel .small { color: var(--ui-dim); font-size: 12px; }
+
+#btnEnterCamp {
+  background:#2e502e; color:#eaffb0; border:2px solid #1c331c;
+  padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:700;
+}
+#btnEnterCamp:hover { filter:brightness(1.1); }
+
+#hud {
+  position:absolute; left:0; right:0; top:0; display:flex; gap:10px;
+  padding:8px; align-items:flex-start; pointer-events:none;
+}
+#timer, #score, #target, #pile, #status {
+  background: rgba(20,28,16,0.9);
+  border: 2px solid #2f3f1f; border-radius: 6px;
+  padding: 6px 10px;
+}
+.pixel {
+  font-family: monospace;
+  font-weight: 900;
+  letter-spacing: 1px;
+  font-size: 20px;
+}
+.small { font-size: 12px; }
+
+#invite {
+  top:auto; bottom:12px; transform: translate(-50%,0);
+}
+
+input#inviteLink {
+  width: 100%;
+  background:#0f140a; color:#dffd9f;
+  border:1px solid #27341a; border-radius:4px;
+  padding:6px 8px; font-family: monospace;
+}
+
+.hidden { display:none; }

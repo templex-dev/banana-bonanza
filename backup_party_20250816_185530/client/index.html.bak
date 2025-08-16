@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Banana Bonanza 🍌 (Alpha)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="ui">
+    <div id="camp-overlay" class="panel hidden">
+      <h1>🍌 Banana Bonanza</h1>
+      <p>Walk your monkey along the jungle paths to choose:<br>
+      <b>Solo (Gorilla Guard)</b>, <b>Co-op</b>, or <b>Competitive</b>.</p>
+      <p>Invite your friend at the <b>campfire</b> to join your room.</p>
+      <p class="small">WASD to move • E (hold) grab/bank • Space tackle • Q bait banana</p>
+      <button id="btnEnterCamp">Enter Jungle Camp</button>
+    </div>
+
+    <div id="invite" class="panel hidden">
+      <div><b>Invite Friend:</b> <input id="inviteLink" readonly /></div>
+      <div class="small">Send them this link; when they click, their monkey will enter your camp.</div>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="timer" class="pixel">3:00</div>
+      <div id="score" class="pixel">0</div>
+      <div id="target" class="pixel small">Target: 50</div>
+      <div id="pile" class="pixel small hidden">Center: 0</div>
+      <div id="status" class="pixel small"></div>
+    </div>
+  </div>
+
+  <canvas id="game" width="960" height="576"></canvas>
+
+  <script src="./main.js"></script>
+</body>
+</html>

@@ -8,20 +8,46 @@
 </head>
 <body>
   <div id="ui">
-    <div id="camp-overlay" class="panel hidden">
+    <!-- Party System (no walking) -->
+    <div id="party-panel" class="panel">
       <h1>🍌 Banana Bonanza</h1>
-      <p>Walk your monkey along the jungle paths to choose:<br>
-      <b>Solo (Gorilla Guard)</b>, <b>Co-op</b>, or <b>Competitive</b>.</p>
-      <p>Invite your friend at the <b>campfire</b> to join your room.</p>
-      <p class="small">WASD to move • E (hold) grab/bank • Space tackle • Q bait banana</p>
-      <button id="btnEnterCamp">Enter Jungle Camp</button>
+      <div class="row">
+        <label class="lbl">Your name</label>
+        <input id="nameInput" placeholder="Capuchin-42" maxlength="16" />
+      </div>
+      <div class="row">
+        <label class="lbl">Mode</label>
+        <div class="modes">
+          <label class="mode">
+            <input type="radio" name="mode" value="gorilla" checked />
+            <span>Gorilla Guard</span>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="competitive" />
+            <span>Competitive</span>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <button id="btnCreate" class="primary">Create Party</button>
+        <button id="btnSolo" class="ghost">Start Solo vs Bots</button>
+      </div>
+      <p class="small">
+        Controls: WASD move • E (hold) grab/bank • Space tackle • Q bait banana
+      </p>
     </div>
 
-    <div id="invite" class="panel hidden">
-      <div><b>Invite Friend:</b> <input id="inviteLink" readonly /></div>
-      <div class="small">Send them this link; when they click, their monkey will enter your camp.</div>
+    <!-- Invite bar -->
+    <div id="invite" class="panel slim hidden">
+      <div class="invite-row">
+        <b>Invite link:</b>
+        <input id="inviteLink" readonly />
+        <button id="btnCopy" class="copy">Copy</button>
+      </div>
+      <div class="small">Share this with a friend. When they click, they join your party instantly.</div>
     </div>
 
+    <!-- HUD -->
     <div id="hud" class="hidden">
       <div id="timer" class="pixel">3:00</div>
       <div id="score" class="pixel">0</div>
